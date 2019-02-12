@@ -1,0 +1,25 @@
+{
+  "name": "ez-proxy",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "DEBUG=ContainersManager,ReverseProxy,Redbird ts-node ./src/index.ts",
+    "production-start": "NODE_ENV=production DEBUG=ContainersManager,ReverseProxy,Redbird ts-node ./src/index.ts",
+    "keep-alive": "node -e \"setInterval(() => {}, 1000)\""
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@elderapo/typed-event-emitter": "^1.4.0",
+    "debug": "^4.0.1",
+    "fs-promise": "^2.0.3",
+    "node-docker-api": "^1.1.22",
+    "parse-domain": "^2.1.2",
+    "redbird": "^0.8.0",
+    "ts-node": "^7.0.1",
+    "typescript": "^3.1.1"
+  },
+  "devDependencies": {
+    "@types/debug": "^0.0.31",
+    "@types/fs-promise": "^1.0.3",
+    "@types/node": "^10.11.4"
+  }
+}

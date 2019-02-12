@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "es2015",
+    "lib": ["es2015", "es2017", "dom"],
+
+    "moduleResolution": "node",
+    "module": "commonjs",
+    "jsx": "react",
+
+    "noEmit": true,
+
+    "declaration": true,
+    "sourceMap": true,
+
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true
+  }
+}

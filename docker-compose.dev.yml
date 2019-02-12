@@ -1,0 +1,15 @@
+version: "2"
+
+services:
+  ez-proxy:
+    image: node:11.9.0
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/src/app
+    working_dir: /src/app
+    entrypoint:
+      - yarn
+      - keep-alive
