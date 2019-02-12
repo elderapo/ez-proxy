@@ -9,7 +9,7 @@ const log = Debug("ReverseProxy");
 class RedbirdStream extends Stream.Writable {
   private log = Debug("Redbird");
   _write(chunk, enc, next) {
-    this.log(chunk.toString());
+    this.log(chunk.toString().replace(/\n$/, ""));
 
     return next();
   }

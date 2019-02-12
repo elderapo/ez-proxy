@@ -26,8 +26,13 @@ export class ContainersManager {
   constructor(private docker: Docker) {
     log("Initialzation...");
     this.dockerEventsListener = new DockerEventsListener(docker);
+
+    this.initialize();
+  }
+
+  private async initialize(): Promise<void> {
+    await this.prepare();
     this.initListeners();
-    this.prepare();
   }
 
   private async prepare() {
@@ -65,7 +70,7 @@ export class ContainersManager {
   }
 
   private initListeners() {
-    log("Setting up event listenres...");
+    log("Setting up event listeners...");
     this.dockerEventsListener.on(DockerEvent.Start, async data => {
       log(`Received DockerEvent.Start for container(${data.containerId})!`);
 
