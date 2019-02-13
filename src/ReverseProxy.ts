@@ -1,8 +1,9 @@
-import * as Redbird from "redbird";
 import * as Debug from "debug";
 import * as path from "path";
-import { page404 } from "./resources/page404";
+import * as Redbird from "redbird";
 import { Stream } from "stream";
+import { page404 } from "./resources/page404";
+import { dnsLookup, getPublicIP } from "./utils";
 
 const log = Debug("ReverseProxy");
 
@@ -55,19 +56,23 @@ export class ReverseProxy {
 
   public async register(
     domain: string,
-    targetDomain: string,
+    targetIP: string,
     targetPort: number,
     letsEncryptEmail: string | null
   ): Promise<void> {
-    const target = `http://${targetDomain}:${targetPort}`;
-    log(`Registering domain(${domain}) target(${target})...`);
+    const target = `http://${targetIP}:${targetPort}`;
+    const isLocal = await this.isLocal(domain);
+
+    log(
+      `Registering domain(${domain}) target(${target}) isLocal(${isLocal})...`
+    );
 
     const options = letsEncryptEmail
       ? {
           ssl: {
             letsencrypt: {
               email: letsEncryptEmail, // Domain owner/admin email
-              production: !(await this.isLocal(targetDomain))
+              production: !isLocal
             }
           }
         }
@@ -79,10 +84,10 @@ export class ReverseProxy {
 
   public async unregister(
     domain: string,
-    targetDomain: string,
+    targetIP: string,
     targetPort: number
   ): Promise<void> {
-    const target = `http://${targetDomain}:${targetPort}`;
+    const target = `http://${targetIP}:${targetPort}`;
     log(`Unregistering domain(${domain}) target(${target})...`);
 
     this.proxy.unregister(domain, target);
@@ -90,6 +95,14 @@ export class ReverseProxy {
   }
 
   private async isLocal(domain: string): Promise<boolean> {
+    const publicIP = await getPublicIP();
+
+    const { address } = await dnsLookup(domain);
+
+    if (address === publicIP) {
+      return false;
+    }
+
     if (domain.match(/.loc$/g)) {
       return true;
     }
