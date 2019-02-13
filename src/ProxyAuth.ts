@@ -68,8 +68,6 @@ export class ProxyAuth {
     const cookies = new Cookies(req, null);
     const authToken = cookies.get(ProxyAuth.AUTH_TOKEN_COOKIE_NAME);
 
-    console.log(authToken, this.authToken);
-
     return authToken === this.authToken;
   }
 

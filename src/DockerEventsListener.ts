@@ -62,11 +62,9 @@ export class DockerEventsListener {
     try {
       data = JSON.parse(rawData.toString());
     } catch (ex) {
-      console.log(`Couldn't parse raw event!`);
+      console.error(`Couldn't parse raw event!`);
       return;
     }
-
-    // console.log(data);
 
     const { status, id: containerId } = data;
     const attributes =
