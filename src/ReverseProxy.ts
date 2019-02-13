@@ -64,7 +64,7 @@ export class ReverseProxy {
     const isLocal = await this.isLocal(domain);
 
     log(
-      `Registering domain(${domain}) target(${target}) isLocal(${isLocal})...`
+      `Registering domain(${domain}) target(${target}) isLocal(${isLocal}) letsEncryptEmail(${letsEncryptEmail})...`
     );
 
     const options = letsEncryptEmail
