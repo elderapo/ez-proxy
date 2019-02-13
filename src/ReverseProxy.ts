@@ -30,7 +30,7 @@ export class ReverseProxy {
         path: path.join(__dirname, "..", ".certificates")
       },
       ssl: {
-        http2: true,
+        // http2: true,
         port: 443
       }
     });
