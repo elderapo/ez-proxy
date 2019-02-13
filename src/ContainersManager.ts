@@ -1,12 +1,12 @@
 import * as Debug from "debug";
+import * as fsPromise from "fs-promise";
 import { Docker } from "node-docker-api";
 import { Container } from "node-docker-api/lib/container";
-import { DockerEvent, DockerEventsListener } from "./DockerEventsListener";
-import { KeyValueStore } from "./types";
-import { ReverseProxy } from "./ReverseProxy";
 import { Network } from "node-docker-api/lib/network";
+import { DockerEvent, DockerEventsListener } from "./DockerEventsListener";
+import { ReverseProxy } from "./ReverseProxy";
+import { KeyValueStore } from "./types";
 import { dnsLookup, sleep } from "./utils";
-import * as fsPromise from "fs-promise";
 
 interface IContainerInfo {
   id: string;
@@ -18,12 +18,11 @@ const log = Debug("ContainersManager");
 
 export class ContainersManager {
   private dockerEventsListener: DockerEventsListener;
-  private reverseProxy: ReverseProxy = new ReverseProxy();
 
   private internalNetwork: Network;
   private thisContainer: Container;
 
-  constructor(private docker: Docker) {
+  constructor(private docker: Docker, private reverseProxy: ReverseProxy) {
     log("Initialzation...");
     this.dockerEventsListener = new DockerEventsListener(docker);
 

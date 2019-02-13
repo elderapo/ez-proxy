@@ -1,7 +1,9 @@
 import * as Debug from "debug";
+import { IncomingMessage } from "http";
 import * as path from "path";
 import * as Redbird from "redbird";
 import { Stream } from "stream";
+import { ProxyAuth } from "./ProxyAuth";
 import { page404 } from "./resources/page404";
 import { dnsLookup, getPublicIP } from "./utils";
 
@@ -19,7 +21,7 @@ class RedbirdStream extends Stream.Writable {
 export class ReverseProxy {
   private proxy;
 
-  constructor() {
+  constructor(private auth: ProxyAuth) {
     this.proxy = new Redbird({
       bunyan: {
         name: "redbird",
@@ -32,7 +34,21 @@ export class ReverseProxy {
       ssl: {
         // http2: true,
         port: 443
-      }
+      },
+      resolvers: [
+        (host, url, req: IncomingMessage) => {
+          if (!this.auth.isEnabled()) {
+            return null;
+          }
+
+          if (this.auth.isAuthorized(req)) {
+            return null;
+          }
+
+          log(`Starting authentication...`);
+          return "http://localhost:8888";
+        }
+      ]
     });
 
     this.proxy.notFound((req, res) => {
