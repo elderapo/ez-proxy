@@ -10,7 +10,7 @@ import { parseDomain } from "./utils";
 const logger = Debug("ProxyAuth");
 
 export class ProxyAuth {
-  public static readonly AUTH_TOKEN_COOKIE_NAME = "__EZ_PROXY_AUTH_TOKEN__";
+  public static readonly AUTH_TOKEN_COOKIE_NAME = "EZ-PROXY-AUTH_TOKEN";
   private port: number = 8888;
 
   private app: express.Application;
