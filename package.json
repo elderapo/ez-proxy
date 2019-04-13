@@ -4,7 +4,8 @@
   "scripts": {
     "start": "DEBUG=ContainersManager,ReverseProxy,Redbird,ProxyAuth ts-node ./src/index.ts",
     "production-start": "NODE_ENV=production DEBUG=ContainersManager,ReverseProxy,Redbird,ProxyAuth ts-node ./src/index.ts",
-    "keep-alive": "node -e \"setInterval(() => {}, 1000)\""
+    "keep-alive": "node -e \"setInterval(() => {}, 1000)\"",
+    "prepare-mkcert": "CAROOT=.caroot .bin/mkcert -install"
   },
   "license": "MIT",
   "dependencies": {
