@@ -4,6 +4,7 @@ import * as parseDomainPackage from "parse-domain";
 import * as publicIP from "public-ip";
 import { promisify } from "util";
 import * as child_process from "child_process";
+import * as path from "path";
 
 export const sleep = promisify(setTimeout);
 
@@ -43,4 +44,10 @@ export const isDomainLocal = (domain: string): boolean => {
   }
 
   return false;
+};
+
+export const mkcert = async (args: string): Promise<void> => {
+  const mkcertPath = path.join(__dirname, "..", ".bin", "mkcert");
+
+  await exec(`${mkcertPath} ${args}`);
 };

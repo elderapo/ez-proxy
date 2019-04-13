@@ -12,3 +12,4 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./.certificates:/src/app/.certificates
+      - ./.caroot:/root/.local/share/mkcert
