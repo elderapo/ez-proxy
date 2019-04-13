@@ -9,7 +9,6 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./:/src/app
-      - ./.caroot:/root/.local/share/mkcert
     working_dir: /src/app
     entrypoint:
       - yarn

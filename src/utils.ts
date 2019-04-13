@@ -49,5 +49,9 @@ export const isDomainLocal = (domain: string): boolean => {
 export const mkcert = async (args: string): Promise<void> => {
   const mkcertPath = path.join(__dirname, "..", ".bin", "mkcert");
 
-  await exec(`${mkcertPath} ${args}`);
+  await exec(`${mkcertPath} ${args}`, {
+    env: {
+      CAROOT: path.join(__dirname, "..", ".caroot")
+    }
+  });
 };

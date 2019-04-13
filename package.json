@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "start": "DEBUG=ContainersManager,ReverseProxy,Redbird,ProxyAuth ts-node ./src/index.ts",
-    "production-start": "NODE_ENV=production DEBUG=ContainersManager,ReverseProxy,Redbird,ProxyAuth ts-node ./src/index.ts",
+    "prod-start": "yarn && NODE_ENV=production DEBUG=ContainersManager,ReverseProxy,Redbird,ProxyAuth ts-node ./src/index.ts",
     "keep-alive": "node -e \"setInterval(() => {}, 1000)\"",
     "prepare-mkcert": "CAROOT=.caroot .bin/mkcert -install"
   },

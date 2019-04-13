@@ -2,14 +2,16 @@ version: "2"
 
 services:
   ez-proxy:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: node:8.15.0
     restart: always
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./.certificates:/src/app/.certificates
-      - ./.caroot:/root/.local/share/mkcert
+      - /src/app/node_modules
+      - ./:/src/app
+    working_dir: /src/app
+    entrypoint:
+      - yarn
+      - prod-start
