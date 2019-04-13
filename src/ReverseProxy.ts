@@ -6,6 +6,7 @@ import { Stream } from "stream";
 import { ProxyAuth } from "./ProxyAuth";
 import { page404 } from "./resources/page404";
 import { dnsLookup, getPublicIP, isDomainLocal } from "./utils";
+import { generateLocalSSL } from "./localSSL";
 
 const log = Debug("ReverseProxy");
 
@@ -87,17 +88,20 @@ export class ReverseProxy {
       `Registering domain(${domain}) target(${target}) isLocal(${isLocal}) letsEncryptEmail(${letsEncryptEmail})...`
     );
 
-    const options =
-      letsEncryptEmail && !isLocal
-        ? {
-            ssl: {
-              letsencrypt: {
-                email: letsEncryptEmail, // Domain owner/admin email
-                production: !isLocal
-              }
+    const options = isLocal
+      ? {
+          ssl: await generateLocalSSL(domain)
+        }
+      : letsEncryptEmail
+      ? {
+          ssl: {
+            letsencrypt: {
+              email: letsEncryptEmail, // Domain owner/admin email
+              production: !isLocal
             }
           }
-        : {};
+        }
+      : {};
 
     this.proxy.register(domain, target, options);
     // this.proxy.register(domain + ".loc", target);

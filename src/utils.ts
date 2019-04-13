@@ -3,11 +3,13 @@ import * as express from "express";
 import * as parseDomainPackage from "parse-domain";
 import * as publicIP from "public-ip";
 import { promisify } from "util";
+import * as child_process from "child_process";
 
 export const sleep = promisify(setTimeout);
 
 export const dnsLookup = promisify(dns.lookup);
 export const dnsReverse = promisify(dns.reverse);
+export const exec = promisify(child_process.exec);
 
 export const getPublicIP = async (): Promise<string> => await publicIP.v4();
 

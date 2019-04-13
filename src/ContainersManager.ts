@@ -1,5 +1,5 @@
 import * as Debug from "debug";
-import * as fsPromise from "fs-promise";
+import * as fs from "fs-extra";
 import { Docker } from "node-docker-api";
 import { Container } from "node-docker-api/lib/container";
 import { Network } from "node-docker-api/lib/network";
@@ -39,7 +39,7 @@ export class ContainersManager {
     this.internalNetwork = await this.findOrCreateInternalNetwork();
 
     log(`Getting self container id...`);
-    const selfContainerId = (await fsPromise.readFile(
+    const selfContainerId = (await fs.readFile(
       "/etc/hostname",
       "utf-8"
     )).replace("\n", "");
