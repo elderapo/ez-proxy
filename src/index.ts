@@ -8,9 +8,15 @@ import { ReverseProxy } from "./ReverseProxy";
 const main = async () => {
   const docker = new Docker({ socketPath: "/var/run/docker.sock" });
 
-  const { BASIC_AUTH_USERNAME, BASIC_AUTH_PASSWORD } = process.env;
+  const {
+    GLOBAL_BASIC_AUTH_USERNAME,
+    GLOBAL_BASIC_AUTH_PASSWORD
+  } = process.env;
 
-  const auth = new ProxyAuth(BASIC_AUTH_USERNAME, BASIC_AUTH_PASSWORD);
+  const auth = new ProxyAuth(
+    GLOBAL_BASIC_AUTH_USERNAME,
+    GLOBAL_BASIC_AUTH_PASSWORD
+  );
   const reverseProxy = new ReverseProxy(auth);
 
   new ContainersManager(docker, reverseProxy);
