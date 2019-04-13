@@ -5,7 +5,8 @@ import * as Redbird from "redbird";
 import { Stream } from "stream";
 import { ProxyAuth } from "./ProxyAuth";
 import { page404 } from "./resources/page404";
-import { dnsLookup, getPublicIP } from "./utils";
+import { dnsLookup, getPublicIP, isDomainLocal } from "./utils";
+import { generateLocalSSL } from "./localSSL";
 
 const log = Debug("ReverseProxy");
 
@@ -37,6 +38,10 @@ export class ReverseProxy {
       },
       resolvers: [
         (host, url, req: IncomingMessage) => {
+          if (isDomainLocal(host)) {
+            return null;
+          }
+
           if (!this.auth.isEnabled()) {
             return null;
           }
@@ -46,7 +51,7 @@ export class ReverseProxy {
           }
 
           log(`Starting authentication...`);
-          return "http://localhost:8888";
+          return this.auth.getAuthUrl();
         }
       ]
     });
@@ -83,7 +88,11 @@ export class ReverseProxy {
       `Registering domain(${domain}) target(${target}) isLocal(${isLocal}) letsEncryptEmail(${letsEncryptEmail})...`
     );
 
-    const options = letsEncryptEmail
+    const options = isLocal
+      ? {
+          ssl: await generateLocalSSL(domain)
+        }
+      : letsEncryptEmail
       ? {
           ssl: {
             letsencrypt: {
@@ -119,14 +128,6 @@ export class ReverseProxy {
       return false;
     }
 
-    if (domain.match(/.loc$/g)) {
-      return true;
-    }
-
-    if (domain.match(/.local$/g)) {
-      return true;
-    }
-
-    return false;
+    return isDomainLocal(domain);
   }
 }

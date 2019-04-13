@@ -4,19 +4,19 @@ services:
   whoami1:
     image: jwilder/whoami
     environment:
-      - VIRTUAL_HOST=whoami1.ziemniak.ovh
+      - VIRTUAL_HOST=whoami1.ziemniak.loc,whoami1.ziemniak.ovh
       - VIRTUAL_PORT=8000
       - LETSENCRYPT_EMAIL=elderapo+LETSENCRYPT@gmail.com
 
   whoami2:
     image: jwilder/whoami
     environment:
-      - VIRTUAL_HOST=whoami2.ziemniak.ovh
+      - VIRTUAL_HOST=whoami2.ziemniak.loc,whoami2.ziemniak.ovh
       - VIRTUAL_PORT=8000
 
   whoami3:
     image: jwilder/whoami
     environment:
-      - VIRTUAL_HOST=whoami3.ziemniak.ovh
+      - VIRTUAL_HOST=whoami3.ziemniak.loc,whoami3.ziemniak.ovh
       - VIRTUAL_PORT=8000
       - LETSENCRYPT_EMAIL=elderapo+LETSENCRYPT@gmail.com
