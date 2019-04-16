@@ -35,6 +35,10 @@ export const parseDomain = (req: express.Request) => {
 };
 
 export const isDomainLocal = (domain: string): boolean => {
+  if (!domain) {
+    return false;
+  }
+
   if (domain.match(/.loc$/g)) {
     return true;
   }
