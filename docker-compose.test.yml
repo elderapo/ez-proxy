@@ -1,0 +1,36 @@
+version: "2"
+
+services:
+  ez-proxy-test:
+    image: node:12
+    volumes:
+      - ./:/src/app
+      - /src/app/node_modules
+    working_dir: /src/app
+    command: yarn keep-alive
+    depends_on:
+      - whoami1-1
+      - whoami1-2
+      - whoami1-3
+      - whoami2
+
+  whoami1-1:
+    image: jwilder/whoami
+    environment:
+      - VIRTUAL_HOST=whoami1.loc
+      - VIRTUAL_PORT=8000
+  whoami1-2:
+    image: jwilder/whoami
+    environment:
+      - VIRTUAL_HOST=whoami1.loc
+      - VIRTUAL_PORT=8000
+  whoami1-3:
+    image: jwilder/whoami
+    environment:
+      - VIRTUAL_HOST=whoami1.loc
+      - VIRTUAL_PORT=8000
+  whoami2:
+    image: jwilder/whoami
+    environment:
+      - VIRTUAL_HOST=whoami2.loc
+      - VIRTUAL_PORT=8000

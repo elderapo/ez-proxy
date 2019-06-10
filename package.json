@@ -5,7 +5,8 @@
     "start": "DEBUG=ContainersManager,ReverseProxy,Redbird,ProxyAuth ts-node ./src/index.ts",
     "prod-start": "yarn && NODE_ENV=production DEBUG=ContainersManager,ReverseProxy,Redbird,ProxyAuth ts-node ./src/index.ts",
     "keep-alive": "node -e \"setInterval(() => {}, 1000)\"",
-    "prepare-mkcert": "CAROOT=.caroot .bin/mkcert -install"
+    "prepare-mkcert": "CAROOT=.caroot .bin/mkcert -install",
+    "__runTests": "yarn && yarn ts-node ./src/scripts/__runTests.ts"
   },
   "license": "MIT",
   "dependencies": {
