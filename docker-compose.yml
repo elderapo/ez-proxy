@@ -2,16 +2,14 @@ version: "2"
 
 services:
   ez-proxy:
-    image: node:8.15.0
+    image: node:12
     restart: always
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /src/app/node_modules
       - ./:/src/app
     working_dir: /src/app
-    entrypoint:
-      - yarn
-      - prod-start
+    command: yarn prod-start
+    # command: yarn keep-alive
