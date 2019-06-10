@@ -3,16 +3,12 @@ version: "2"
 services:
   ez-proxy-test:
     image: node:12
+    network_mode: "host"
     volumes:
-      - ./:/src/app
+      - ../:/src/app
       - /src/app/node_modules
     working_dir: /src/app
     command: yarn keep-alive
-    depends_on:
-      - whoami1-1
-      - whoami1-2
-      - whoami1-3
-      - whoami2
 
   whoami1-1:
     image: jwilder/whoami
