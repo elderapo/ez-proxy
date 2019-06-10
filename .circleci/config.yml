@@ -9,11 +9,6 @@ jobs:
           name: Configure Dnsmasq
           command: |
             sudo echo "address=/.loc/127.0.0.1" > /etc/dnsmasq.conf
-            sudo systemctl reload dnsmasq
-            # sudo apt-get update
-            # sudo apt-get install -y dnsmasq-base
-            # sudo killall -9 dnsmasq
-            # sudo dnsmasq
 
       - run:
           name: Prepare ez-proxy
