@@ -1,6 +1,6 @@
 import * as fs from "fs-extra";
 import * as path from "path";
-import { exec, mkcert } from "./utils";
+import { mkcert } from "./utils";
 
 export interface ISSLInfo {
   key: string;
