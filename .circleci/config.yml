@@ -6,13 +6,13 @@ jobs:
       - checkout
 
       - run:
-        name: Configure Dnsmasq
-        command: |
-          echo "address=/.loc/127.0.0.1" > /etc/dnsmasq.conf
-          sudo apt-get update
-          sudo apt-get install -y dnsmasq-base
-          sudo killall -9 dnsmasq
-          sudo dnsmasq
+          name: Configure Dnsmasq
+          command: |
+            echo "address=/.loc/127.0.0.1" > /etc/dnsmasq.conf
+            sudo apt-get update
+            sudo apt-get install -y dnsmasq-base
+            sudo killall -9 dnsmasq
+            sudo dnsmasq
 
       - run:
           name: Prepare ez-proxy
