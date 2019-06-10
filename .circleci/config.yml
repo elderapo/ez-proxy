@@ -8,7 +8,7 @@ jobs:
       - run:
           name: Configure Dnsmasq
           command: |
-            sudo echo "address=/.loc/127.0.0.1" > /etc/dnsmasq.conf
+            sudo cat /etc/dnsmasq.conf
 
       - run:
           name: Prepare ez-proxy
