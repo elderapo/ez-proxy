@@ -7,8 +7,7 @@ jobs:
 
       - run:
           name: Configure Dnsmasq
-          command: |
-            sudo cat /etc/dnsmasq.conf
+          command: sudo echo "address=/.loc/127.0.0.1" > /etc/dnsmasq.conf && sudo sh -c ‘systemctl reload dnsmasq’
 
       - run:
           name: Prepare ez-proxy
