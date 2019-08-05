@@ -192,6 +192,10 @@ export class ReverseProxy {
       return this.options.globalBasicAuth.getHandleUnauthorizedRequestFN();
     }
 
+    if (proxiedContainer && proxiedContainer.basicAuth) {
+      return proxiedContainer.basicAuth.getHandleUnauthorizedRequestFN();
+    }
+
     return null;
   }
 }
