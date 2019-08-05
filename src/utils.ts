@@ -1,10 +1,11 @@
+import * as child_process from "child_process";
 import * as dns from "dns";
 import * as express from "express";
 import * as parseDomainPackage from "parse-domain";
-import * as publicIP from "public-ip";
-import { promisify } from "util";
-import * as child_process from "child_process";
 import * as path from "path";
+import * as publicIP from "public-ip";
+import * as sslUtils from "ssl-utils";
+import { promisify } from "util";
 
 export const sleep = promisify(setTimeout);
 
@@ -57,5 +58,19 @@ export const mkcert = async (args: string): Promise<void> => {
     env: {
       CAROOT: path.join(__dirname, "..", ".caroot")
     }
+  });
+};
+
+export const checkCertificateExpiration = async (
+  cert: string | Buffer
+): Promise<Date> => {
+  return new Promise<Date>((resolve, reject) => {
+    sslUtils.checkCertificateExpiration(cert, (err, expiry) => {
+      if (err) {
+        return reject(err);
+      }
+
+      return resolve(expiry);
+    });
   });
 };

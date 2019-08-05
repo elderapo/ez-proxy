@@ -111,35 +111,38 @@ export class ContainersManager {
     this.containerIdToIP.set(container.id, containerIP);
     log(`Container ip`, containerIP);
 
-    const targetPort = this.getVirtualHostPort(containerInfo);
+    const containerPort = this.getVirtualHostPort(containerInfo);
 
     const letsEncryptEmail = this.getLetsEncryptEmail(containerInfo);
 
     for (let domain of domains) {
-      await this.reverseProxy.register(
-        domain,
+      await this.reverseProxy.register(containerInfo.id, {
+        virtualHost: domain,
         containerIP,
-        targetPort,
-        letsEncryptEmail
-      );
+        containerPort,
+        letsEncryptEmail,
+        ezProxyPriority: 10
+      });
     }
   }
 
   private async onDieRelevantContainer(containerInfo: IContainerInfo) {
     log(`Relevent container(${containerInfo.id}) is dying...`);
-    const domains = this.getVirtualHostDomains(containerInfo);
-    log(`Domains([${domains.join(", ")}])`);
+    // const domains = this.getVirtualHostDomains(containerInfo);
+    // log(`Domains([${domains.join(", ")}])`);
 
-    const container = await this.getContainer(containerInfo.id);
+    // const container = await this.getContainer(containerInfo.id);
 
-    const containerIP = this.containerIdToIP.get(container.id);
-    const targetPort = this.getVirtualHostPort(containerInfo);
+    // const containerIP = this.containerIdToIP.get(container.id);
+    // const targetPort = this.getVirtualHostPort(containerInfo);
 
-    for (let domain of domains) {
-      if (containerIP) {
-        await this.reverseProxy.unregister(domain, containerIP, targetPort);
-      }
-    }
+    await this.reverseProxy.unregister(containerInfo.id);
+
+    // for (let domain of domains) {
+    //   if (containerIP) {
+    //     await this.reverseProxy.unregister(domain, containerIP, targetPort);
+    //   }
+    // }
   }
 
   private async getContainer(containerId: string): Promise<Container | null> {

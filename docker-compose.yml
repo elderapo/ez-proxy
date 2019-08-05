@@ -11,5 +11,5 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./:/src/app
     working_dir: /src/app
-    command: yarn prod-start
-    # command: yarn keep-alive
+    # command: yarn prod-start
+    command: yarn keep-alive
