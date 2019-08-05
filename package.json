@@ -2,8 +2,8 @@
   "name": "ez-proxy",
   "version": "1.0.0",
   "scripts": {
-    "start": "DEBUG=ContainersManager,ReverseProxy,Redbird,ProxyAuth,SSLManager ts-node ./src/index.ts",
-    "prod-start": "yarn && NODE_ENV=production DEBUG=ContainersManager,ReverseProxy,Redbird,ProxyAuth ts-node ./src/index.ts",
+    "start": "DEBUG=ContainersManager,ReverseProxy,SSLManager,Request ts-node ./src/main.ts",
+    "prod-start": "yarn && NODE_ENV=production yarn start",
     "keep-alive": "node -e \"setInterval(() => {}, 1000)\"",
     "prepare-mkcert": "CAROOT=.caroot .bin/mkcert -install"
   },
@@ -21,6 +21,7 @@
     "fs-extra": "^7.0.1",
     "http-proxy": "^1.17.0",
     "lodash": "^4.17.15",
+    "morgan": "^1.9.1",
     "node-docker-api": "^1.1.22",
     "parse-domain": "^2.1.7",
     "public-ip": "^3.0.0",
@@ -39,6 +40,7 @@
     "@types/fs-extra": "^5.0.5",
     "@types/http-proxy": "^1.17.0",
     "@types/lodash": "^4.14.136",
+    "@types/morgan": "^1.7.36",
     "@types/node": "^12.0.7"
   }
 }

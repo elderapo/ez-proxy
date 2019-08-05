@@ -6,12 +6,22 @@ import * as https from "https";
 import { GlobalSharedBasicAuth } from "./auth";
 import { HandleUnauthorizedRequestFN } from "./auth/BasicAuth";
 import { HttpsMethod, ProxiedContainer } from "./ProxiedContainer";
-import { page404 } from "./resources/page404";
+import { page404 } from "./resources";
 import { SSLManager } from "./SSLManager";
 import { httpRedirect, httpRespond, isDomainLocal } from "./utils";
 import * as _ from "lodash";
+import * as morgan from "morgan";
 
 const log = Debug("ReverseProxy");
+const requestLogger = Debug("Request");
+
+const morganLogger = morgan("combined", {
+  stream: { write: msg => requestLogger(msg) }
+});
+
+const httpLogger = (req: IncomingMessage, res: http.ServerResponse) => {
+  morganLogger(req as any, res as any, () => {});
+};
 
 export interface IReverseProxyOptions {
   globalBasicAuth?: GlobalSharedBasicAuth | null;
@@ -86,6 +96,7 @@ export class ReverseProxy {
     res: http.ServerResponse,
     protocol: "http" | "https"
   ): Promise<void> {
+    httpLogger(req, res);
     const host = req.headers.host || "";
     const proxiedContainer = this.getProxiedContainerByDomain(host);
 
