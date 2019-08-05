@@ -6,7 +6,10 @@ import { Network } from "node-docker-api/lib/network";
 import { DockerEvent, DockerEventsListener } from "./DockerEventsListener";
 import { ReverseProxy } from "./ReverseProxy";
 import { KeyValueStore } from "./types";
-import { dnsLookup, sleep } from "./utils";
+import { dnsLookup } from "./utils";
+import { ProxiedContainer, HttpsMethod } from "./ProxiedContainer";
+import { IBasicAuthOptions } from "./auth/BasicAuth";
+import { isValidEnum, sleep } from "@elderapo/utils";
 
 interface IContainerInfo {
   id: string;
@@ -61,6 +64,11 @@ export class ContainersManager {
 
     for (let c of containers) {
       const containerInfo = await this.getContainerInfo(c);
+
+      if (!containerInfo) {
+        continue;
+      }
+
       if (await this.isContainerRelevant(containerInfo, true)) {
         log(`Found old relevant container(${c.id}) - attaching...`);
         this.onStartReleventContainer(containerInfo);
@@ -74,7 +82,16 @@ export class ContainersManager {
       log(`Received DockerEvent.Start for container(${data.containerId})!`);
 
       const container = await this.getContainer(data.containerId);
+
+      if (!container) {
+        return;
+      }
+
       const containerInfo = await this.getContainerInfo(container);
+
+      if (!containerInfo) {
+        return;
+      }
 
       if (!(await this.isContainerRelevant(containerInfo))) {
         return;
@@ -87,7 +104,16 @@ export class ContainersManager {
       log(`Received DockerEvent.Die for container(${data.containerId})!`);
 
       const container = await this.getContainer(data.containerId);
+
+      if (!container) {
+        return;
+      }
+
       const containerInfo = await this.getContainerInfo(container);
+
+      if (!containerInfo) {
+        return;
+      }
 
       if (!(await this.isContainerRelevant(containerInfo))) {
         return;
@@ -101,45 +127,42 @@ export class ContainersManager {
 
   private async onStartReleventContainer(containerInfo: IContainerInfo) {
     log(`Relevent container(${containerInfo.id}) is being started...`);
-    const domains = this.getVirtualHostDomains(containerInfo);
-    log(`Domains([${domains.join(", ")}])`);
+    const virtualHosts = this.getVirtualHostDomains(containerInfo);
+    log(`Domains([${virtualHosts.join(", ")}])`);
 
     const container = await this.getContainer(containerInfo.id);
+
+    if (!container) {
+      return;
+    }
 
     await this.fixContainerNetwork(container);
     const containerIP = await this.getContainerIP(container);
     this.containerIdToIP.set(container.id, containerIP);
-    log(`Container ip`, containerIP);
 
-    const targetPort = this.getVirtualHostPort(containerInfo);
+    for (let virtualHost of virtualHosts) {
+      const proxiedContainer = new ProxiedContainer(containerInfo.id, {
+        options: {
+          domain: virtualHost,
+          containerPort: this.getVirtualHostPort(containerInfo),
+          letsEncryptEmail: this.getLetsEncryptEmail(containerInfo),
+          httpsMethod: this.getHttpsMethod(containerInfo),
+          ezProxyPriority: this.getEzProxyPriority(containerInfo),
+          basicAuthOptions: this.getBasicAuthOptions(containerInfo)
+        },
+        state: {
+          ip: containerIP
+        }
+      });
 
-    const letsEncryptEmail = this.getLetsEncryptEmail(containerInfo);
-
-    for (let domain of domains) {
-      await this.reverseProxy.register(
-        domain,
-        containerIP,
-        targetPort,
-        letsEncryptEmail
-      );
+      await this.reverseProxy.register(proxiedContainer);
     }
   }
 
   private async onDieRelevantContainer(containerInfo: IContainerInfo) {
     log(`Relevent container(${containerInfo.id}) is dying...`);
-    const domains = this.getVirtualHostDomains(containerInfo);
-    log(`Domains([${domains.join(", ")}])`);
 
-    const container = await this.getContainer(containerInfo.id);
-
-    const containerIP = this.containerIdToIP.get(container.id);
-    const targetPort = this.getVirtualHostPort(containerInfo);
-
-    for (let domain of domains) {
-      if (containerIP) {
-        await this.reverseProxy.unregister(domain, containerIP, targetPort);
-      }
-    }
+    await this.reverseProxy.unregister(containerInfo.id);
   }
 
   private async getContainer(containerId: string): Promise<Container | null> {
@@ -156,13 +179,13 @@ export class ContainersManager {
     const status = await container.status();
 
     const env: KeyValueStore = ((status as any)!.data!.Config!.Env || [])
-      .map(line => {
+      .map((line: string) => {
         const parts = line.split("=");
         return {
           [parts[0]]: parts[1]
         };
       })
-      .reduce((obj, a) => Object.assign(obj, a), {});
+      .reduce((obj: any, a: any) => Object.assign(obj, a), {});
 
     const labels: KeyValueStore = (status as any)!.data!.Config!.Labels || {};
 
@@ -210,6 +233,39 @@ export class ContainersManager {
 
   private getLetsEncryptEmail(containerInfo: IContainerInfo): string | null {
     return containerInfo.env["LETSENCRYPT_EMAIL"] || null;
+  }
+
+  private getEzProxyPriority(containerInfo: IContainerInfo): number {
+    const priority = parseInt(containerInfo.env["EZ_PROXY_PRIORITY"]);
+
+    return Number.isNaN(priority) ? 10 : priority;
+  }
+
+  private getBasicAuthOptions(
+    containerInfo: IContainerInfo
+  ): IBasicAuthOptions | null {
+    const {
+      BASIC_AUTH = "",
+      BASIC_AUTH_COOKIE = "__ez_proxy_service_basic_auth__"
+    } = containerInfo.env;
+
+    const [username, password] = BASIC_AUTH.split(":");
+
+    return username && password
+      ? {
+          username,
+          password,
+          cookieName: BASIC_AUTH_COOKIE
+        }
+      : null;
+  }
+
+  private getHttpsMethod(containerInfo: IContainerInfo): HttpsMethod {
+    const httpsMethod = containerInfo.env["HTTPS_METHOD"] as HttpsMethod;
+
+    return isValidEnum(HttpsMethod, httpsMethod as HttpsMethod)
+      ? httpsMethod
+      : HttpsMethod.Default;
   }
 
   private async findOrCreateInternalNetwork(): Promise<Network> {

@@ -20,3 +20,32 @@ services:
       - VIRTUAL_HOST=whoami3.ziemniak.loc,whoami3.ziemniak.ovh
       - VIRTUAL_PORT=8000
       - LETSENCRYPT_EMAIL=elderapo+LETSENCRYPT@gmail.com
+
+  service_frontend_1:
+    image: jwilder/whoami
+    environment:
+      - VIRTUAL_HOST=niceapp.ziemniak.loc
+      - VIRTUAL_PORT=8000
+      - LETSENCRYPT_EMAIL=elderapo+LETSENCRYPT@gmail.com
+
+  service_frontend_2:
+    image: jwilder/whoami
+    environment:
+      - VIRTUAL_HOST=niceapp.ziemniak.loc
+      - VIRTUAL_PORT=8000
+      - LETSENCRYPT_EMAIL=elderapo+LETSENCRYPT@gmail.com
+
+  # service_frontend_3:
+  #   image: jwilder/whoami
+  #   environment:
+  #     - VIRTUAL_HOST=niceapp.ziemniak.loc
+  #     - VIRTUAL_PORT=8000
+  #     - LETSENCRYPT_EMAIL=elderapo+LETSENCRYPT@gmail.com
+
+  service_frontend_maintenance:
+    image: jwilder/whoami
+    environment:
+      - VIRTUAL_HOST=niceapp.ziemniak.loc
+      - VIRTUAL_PORT=8000
+      - LETSENCRYPT_EMAIL=elderapo+LETSENCRYPT@gmail.com
+      - EZ_PROXY_PRIORITY=1

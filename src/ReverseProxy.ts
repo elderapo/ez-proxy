@@ -1,138 +1,213 @@
 import * as Debug from "debug";
+import * as http from "http";
 import { IncomingMessage } from "http";
-import * as path from "path";
-import * as Redbird from "redbird";
-import { Stream } from "stream";
-import { ProxyAuth } from "./ProxyAuth";
-import { page404 } from "./resources/page404";
-import { dnsLookup, getPublicIP, isDomainLocal } from "./utils";
-import { generateLocalSSL } from "./localSSL";
-import { constants } from "crypto";
+import * as HttpProxy from "http-proxy";
+import * as https from "https";
+import { GlobalSharedBasicAuth } from "./auth";
+import { HandleUnauthorizedRequestFN } from "./auth/BasicAuth";
+import { HttpsMethod, ProxiedContainer } from "./ProxiedContainer";
+import { page404 } from "./resources";
+import { SSLManager } from "./SSLManager";
+import { httpRedirect, httpRespond, isDomainLocal } from "./utils";
+import * as _ from "lodash";
+import * as morgan from "morgan";
 
 const log = Debug("ReverseProxy");
+const requestLogger = Debug("Request");
 
-class RedbirdStream extends Stream.Writable {
-  private log = Debug("Redbird");
-  _write(chunk, enc, next) {
-    this.log(chunk.toString().replace(/\n$/, ""));
+const morganLogger = morgan("combined", {
+  stream: { write: msg => requestLogger(msg) }
+});
 
-    return next();
-  }
+const httpLogger = (req: IncomingMessage, res: http.ServerResponse) => {
+  morganLogger(req as any, res as any, () => {});
+};
+
+export interface IReverseProxyOptions {
+  globalBasicAuth?: GlobalSharedBasicAuth | null;
 }
 
 export class ReverseProxy {
-  private proxy;
+  private proxy: HttpProxy;
+  private httpServer: http.Server;
+  private httpsServer: https.Server;
 
-  constructor(private auth: ProxyAuth) {
-    this.proxy = new Redbird({
-      bunyan: {
-        name: "redbird",
-        stream: new RedbirdStream()
-      },
-      port: 80,
-      letsencrypt: {
-        path: path.join(__dirname, "..", ".certificates")
-      },
-      ssl: {
-        // http2: true,
-        port: 443
-      },
-      resolvers: [
-        (host, url, req: IncomingMessage) => {
-          if (isDomainLocal(host)) {
-            return null;
+  private sslManager = new SSLManager();
+
+  private proxiedContainers: ProxiedContainer[] = [];
+
+  constructor(private options: IReverseProxyOptions = {}) {
+    this.proxy = HttpProxy.createProxyServer({
+      secure: true,
+      ws: true
+    });
+
+    this.httpServer = http.createServer((req, res) =>
+      this.httpRequestHandler(req, res, "http")
+    );
+    this.httpServer.listen(80);
+
+    this.httpsServer = https.createServer(
+      {
+        SNICallback: async (domain, done) => {
+          const proxiedContainer = this.getProxiedContainerByDomain(domain);
+
+          if (!proxiedContainer) {
+            return done(new Error("Unknown domain..."), null as any);
           }
 
-          if (!this.auth.isEnabled()) {
-            return null;
-          }
+          const secureContext = await this.sslManager.getSSLSecureContext(
+            proxiedContainer.options.domain,
+            proxiedContainer.options.letsEncryptEmail
+          );
 
-          if (this.auth.isAuthorized(req)) {
-            return null;
-          }
-
-          log(`Starting authentication...`);
-          return this.auth.getAuthUrl();
+          return done(null, secureContext);
         }
-      ]
-    });
-
-    this.proxy.notFound((req, res) => {
-      const host = req.headers.host;
-      if (/^www\./.test(host)) {
-        const finalHost = host.substring(4, host.length);
-        const finalLocation = "http://" + finalHost + req.url;
-
-        res.writeHead(301, {
-          Location: finalLocation,
-          Expires: new Date().toUTCString()
-        });
-        return res.end();
-      }
-
-      res.statusCode = 404;
-      res.write(page404);
-      res.end();
-    });
-  }
-
-  public async register(
-    domain: string,
-    targetIP: string,
-    targetPort: number,
-    letsEncryptEmail: string | null
-  ): Promise<void> {
-    const target = `http://${targetIP}:${targetPort}`;
-    const isLocal = await this.isLocal(domain);
-
-    log(
-      `Registering domain(${domain}) target(${target}) isLocal(${isLocal}) letsEncryptEmail(${letsEncryptEmail})...`
+      },
+      (req, res) => this.httpRequestHandler(req, res, "https")
     );
 
-    const options: any = isLocal
-      ? {
-          ssl: await generateLocalSSL(domain)
-        }
-      : letsEncryptEmail
-      ? {
-          ssl: {
-            letsencrypt: {
-              email: letsEncryptEmail, // Domain owner/admin email
-              production: !isLocal
-            }
-          }
-        }
-      : {};
+    this.httpsServer.on("upgrade", (req, socket, head) => {
+      const host = req.headers.host;
+      const proxiedContainer = this.getProxiedContainerByDomain(host);
 
-    if (options.ssl) {
-      options.ssl.secureOptions = constants.SSL_OP_NO_TLSv1;
-    }
+      const handleUnauthorizedRequestFN = this.getHandleUnauthorizedRequestFN(
+        req,
+        proxiedContainer
+      );
 
-    this.proxy.register(domain, target, options);
-    // this.proxy.register(domain + ".loc", target);
+      if (handleUnauthorizedRequestFN) {
+        return;
+      }
+
+      if (proxiedContainer) {
+        this.proxy.ws(req, socket, head, {
+          target: proxiedContainer.getInternalURL(),
+          ws: true
+        });
+      }
+    });
+
+    this.httpsServer.listen(443);
   }
 
-  public async unregister(
-    domain: string,
-    targetIP: string,
-    targetPort: number
+  private async httpRequestHandler(
+    req: IncomingMessage,
+    res: http.ServerResponse,
+    protocol: "http" | "https"
   ): Promise<void> {
-    const target = `http://${targetIP}:${targetPort}`;
-    log(`Unregistering domain(${domain}) target(${target})...`);
+    httpLogger(req, res);
+    const host = req.headers.host || "";
+    const proxiedContainer = this.getProxiedContainerByDomain(host);
 
-    this.proxy.unregister(domain, target);
-    // this.proxy.unregister(domain + ".loc", target);
-  }
+    const handleUnauthorizedRequestFN = this.getHandleUnauthorizedRequestFN(
+      req,
+      proxiedContainer
+    );
 
-  private async isLocal(domain: string): Promise<boolean> {
-    const publicIP = await getPublicIP();
+    if (handleUnauthorizedRequestFN) {
+      const canContinue = handleUnauthorizedRequestFN(req, res);
 
-    const { address } = await dnsLookup(domain);
-
-    if (address === publicIP) {
-      return false;
+      if (!canContinue) {
+        return;
+      }
     }
 
-    return isDomainLocal(domain);
+    if (protocol === "http") {
+      const acmeResponse = this.sslManager.getAcmeResponse(req);
+
+      if (acmeResponse) {
+        res.write(acmeResponse);
+        res.end();
+        return;
+      }
+
+      if (proxiedContainer) {
+        if (proxiedContainer.options.httpsMethod === HttpsMethod.NoHttp) {
+          return httpRespond(res, 404, page404);
+        }
+
+        if (proxiedContainer.options.httpsMethod === HttpsMethod.Recirect) {
+          return httpRedirect(res, `https://${host}:${req.url}`);
+        }
+      }
+    }
+
+    if (/^www\./.test(host)) {
+      const finalHost = host.substring(4, host.length);
+      const finalLocation = `${protocol}://${finalHost}${req.url}`;
+
+      return httpRedirect(res, finalLocation);
+    }
+
+    if (!proxiedContainer) {
+      return httpRespond(res, 404, page404);
+    }
+
+    if (
+      proxiedContainer.options.httpsMethod === HttpsMethod.NoHttps &&
+      protocol === "https"
+    ) {
+      return httpRespond(res, 404, page404);
+    }
+
+    return this.proxy.web(req, res, {
+      target: proxiedContainer.getInternalURL()
+    });
+  }
+
+  public async register(proxiedContainer: ProxiedContainer): Promise<void> {
+    log(`Registering container: ${JSON.stringify(proxiedContainer)}...`);
+    this.proxiedContainers.push(proxiedContainer);
+  }
+
+  public async unregister(removedContainerID: string): Promise<void> {
+    this.proxiedContainers = this.proxiedContainers.filter(
+      proxiedContainer => proxiedContainer.id !== removedContainerID
+    );
+  }
+
+  private getProxiedContainerByDomain(domain: string): ProxiedContainer | null {
+    const thisDomainProxiedContainers = this.proxiedContainers.filter(
+      proxiedContainer => proxiedContainer.options.domain === domain
+    );
+
+    const bestPriority = thisDomainProxiedContainers.reduce(
+      (prev, proxiedContainer) => {
+        return Math.max(prev, proxiedContainer.options.ezProxyPriority);
+      },
+      -Infinity
+    );
+
+    const thisDomainProxiedContainersWithBestPriority = thisDomainProxiedContainers.filter(
+      proxiedContainer =>
+        proxiedContainer.options.ezProxyPriority === bestPriority
+    );
+
+    return _.sample(thisDomainProxiedContainersWithBestPriority) || null;
+  }
+
+  private getHandleUnauthorizedRequestFN(
+    req: IncomingMessage,
+    proxiedContainer?: ProxiedContainer | null
+  ): HandleUnauthorizedRequestFN | null {
+    const host = req.headers.host || "";
+
+    if (isDomainLocal(host)) {
+      return null;
+    }
+
+    if (
+      this.options.globalBasicAuth &&
+      !this.options.globalBasicAuth.isAuthorized(req)
+    ) {
+      return this.options.globalBasicAuth.getHandleUnauthorizedRequestFN();
+    }
+
+    if (proxiedContainer && proxiedContainer.basicAuth) {
+      return proxiedContainer.basicAuth.getHandleUnauthorizedRequestFN();
+    }
+
+    return null;
   }
 }
