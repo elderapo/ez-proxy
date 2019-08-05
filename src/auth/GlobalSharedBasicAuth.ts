@@ -11,14 +11,18 @@ export class GlobalSharedBasicAuth extends BasicAuth {
     const canContinue = super.handleUnauthorizedRequest(req, res);
 
     if (canContinue) {
-      const parsedDomain = parseDomain(req);
+      try {
+        const parsedDomain = parseDomain(req);
 
-      const cookies = new Cookies(req, res);
+        const cookies = new Cookies(req, res);
 
-      cookies.set(this.options.cookieName, this.authToken, {
-        domain: `.${parsedDomain.domain}.${parsedDomain.tld}`,
-        httpOnly: false
-      });
+        cookies.set(this.options.cookieName, this.authToken, {
+          domain: `.${parsedDomain.domain}.${parsedDomain.tld}`,
+          httpOnly: false
+        });
+      } catch (ex) {
+        // cuz parseDomain throws an error for IPs
+      }
     }
 
     return canContinue;

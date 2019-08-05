@@ -1,6 +1,7 @@
 import * as child_process from "child_process";
 import * as dns from "dns";
 import * as http from "http";
+import * as net from "net";
 // @ts-ignore
 import * as parseDomainPackage from "parse-domain";
 import * as path from "path";
@@ -19,6 +20,10 @@ export const getPublicIP = async (): Promise<string> => await publicIP.v4();
 
 export const parseDomain = (req: http.IncomingMessage) => {
   let host = req.headers.host || "";
+
+  if (net.isIP(host)) {
+    throw new Error(`Cannot parse IP address like domain...`);
+  }
 
   const isLocal = isDomainLocal(host);
   let localTld: string = "";
