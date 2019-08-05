@@ -5,7 +5,7 @@ import * as HttpProxy from "http-proxy";
 import * as https from "https";
 import { ProxyAuth } from "./ProxyAuth";
 import { page404 } from "./resources/page404";
-import { isDomainLocal } from "./utils";
+import { isDomainLocal, httpRedirect, httpRespond } from "./utils";
 import { SSLManager } from "./SSLManager";
 import * as tls from "tls";
 
@@ -17,7 +17,7 @@ export interface IReverseProxyConnectionOptions {
   containerPort: number;
   containerIP: string;
 
-  letsEncryptEmail?: string;
+  letsEncryptEmail: string | null;
   ezProxyPriority?: number;
 }
 
@@ -35,7 +35,10 @@ export class ReverseProxy {
   private items: IProxyItem[] = [];
 
   constructor(private auth: ProxyAuth) {
-    this.proxy = HttpProxy.createProxyServer();
+    this.proxy = HttpProxy.createProxyServer({
+      secure: true,
+      ws: true
+    });
 
     this.httpServer = http.createServer((req, res) =>
       this.httpRequestHandler(req, res, "http")
@@ -48,7 +51,7 @@ export class ReverseProxy {
           const item = this.getProxyItemByDomain(domain);
 
           if (!item) {
-            return done(new Error("Unknown domain..."), null);
+            return done(new Error("Unknown domain..."), null as any);
           }
 
           const secureContext = await this.sslManager.getSSLSecureContext(
@@ -61,6 +64,24 @@ export class ReverseProxy {
       },
       (req, res) => this.httpRequestHandler(req, res, "https")
     );
+
+    this.httpsServer.on("upgrade", (req, socket, head) => {
+      if (this.requiresAuthorization(req)) {
+        return;
+      }
+
+      const host = req.headers.host;
+
+      const item = this.getProxyItemByDomain(host);
+
+      if (item) {
+        this.proxy.ws(req, socket, head, {
+          target: `http://${item.containerIP}:${item.containerPort}`,
+          ws: true
+        });
+      }
+    });
+
     this.httpsServer.listen(443);
   }
 
@@ -69,50 +90,44 @@ export class ReverseProxy {
     res: http.ServerResponse,
     protocol: "http" | "https"
   ): Promise<void> {
-    const host = req.headers.host;
+    const host = req.headers.host || "";
 
-    const acmeResponse = this.sslManager.getAcmeResponse(req);
+    const item = this.getProxyItemByDomain(host);
 
-    if (acmeResponse) {
-      res.write(acmeResponse);
-      res.end();
-      return;
+    if (protocol === "http") {
+      const acmeResponse = this.sslManager.getAcmeResponse(req);
+
+      if (acmeResponse) {
+        res.write(acmeResponse);
+        res.end();
+        return;
+      }
+
+      if (/^www\./.test(host)) {
+        const finalHost = host.substring(4, host.length);
+        const finalLocation = `${protocol}://${finalHost}${req.url}`;
+
+        return httpRedirect(res, finalLocation);
+      }
+
+      if (item) {
+        return httpRedirect(res, `https://${host}:${req.url}`);
+      }
     }
 
-    if (
-      !isDomainLocal(host) &&
-      this.auth.isEnabled() &&
-      !this.auth.isAuthorized(req)
-    ) {
+    if (this.requiresAuthorization(req)) {
       return this.proxy.web(req, res, {
         target: this.auth.getAuthUrl()
       });
     }
 
-    if (/^www\./.test(host)) {
-      const finalHost = host.substring(4, host.length);
-      const finalLocation = `${protocol}://${finalHost}${req.url}`;
-
-      res.writeHead(301, {
-        Location: finalLocation,
-        Expires: new Date().toUTCString()
-      });
-
-      return res.end();
-    }
-
-    const item = this.getProxyItemByDomain(host);
-
     if (item) {
       return this.proxy.web(req, res, {
-        target: `http://${item.containerIP}:${item.containerPort}`,
-        ws: true
+        target: `http://${item.containerIP}:${item.containerPort}`
       });
     }
 
-    res.statusCode = 404;
-    res.write(page404);
-    res.end();
+    return httpRespond(res, 404, page404);
   }
 
   public async register(
@@ -139,5 +154,15 @@ export class ReverseProxy {
     }
 
     return null;
+  }
+
+  private requiresAuthorization(req: IncomingMessage): boolean {
+    const host = req.headers.host || "";
+
+    return (
+      !isDomainLocal(host) &&
+      this.auth.isEnabled() &&
+      !this.auth.isAuthorized(req)
+    );
   }
 }

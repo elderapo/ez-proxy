@@ -61,6 +61,11 @@ export class ContainersManager {
 
     for (let c of containers) {
       const containerInfo = await this.getContainerInfo(c);
+
+      if (!containerInfo) {
+        continue;
+      }
+
       if (await this.isContainerRelevant(containerInfo, true)) {
         log(`Found old relevant container(${c.id}) - attaching...`);
         this.onStartReleventContainer(containerInfo);
@@ -74,7 +79,16 @@ export class ContainersManager {
       log(`Received DockerEvent.Start for container(${data.containerId})!`);
 
       const container = await this.getContainer(data.containerId);
+
+      if (!container) {
+        return;
+      }
+
       const containerInfo = await this.getContainerInfo(container);
+
+      if (!containerInfo) {
+        return;
+      }
 
       if (!(await this.isContainerRelevant(containerInfo))) {
         return;
@@ -87,7 +101,16 @@ export class ContainersManager {
       log(`Received DockerEvent.Die for container(${data.containerId})!`);
 
       const container = await this.getContainer(data.containerId);
+
+      if (!container) {
+        return;
+      }
+
       const containerInfo = await this.getContainerInfo(container);
+
+      if (!containerInfo) {
+        return;
+      }
 
       if (!(await this.isContainerRelevant(containerInfo))) {
         return;
@@ -105,6 +128,10 @@ export class ContainersManager {
     log(`Domains([${domains.join(", ")}])`);
 
     const container = await this.getContainer(containerInfo.id);
+
+    if (!container) {
+      return;
+    }
 
     await this.fixContainerNetwork(container);
     const containerIP = await this.getContainerIP(container);
@@ -159,13 +186,13 @@ export class ContainersManager {
     const status = await container.status();
 
     const env: KeyValueStore = ((status as any)!.data!.Config!.Env || [])
-      .map(line => {
+      .map((line: string) => {
         const parts = line.split("=");
         return {
           [parts[0]]: parts[1]
         };
       })
-      .reduce((obj, a) => Object.assign(obj, a), {});
+      .reduce((obj: any, a: any) => Object.assign(obj, a), {});
 
     const labels: KeyValueStore = (status as any)!.data!.Config!.Labels || {};
 

@@ -1,3 +1,4 @@
+// @ts-ignore
 import * as acme from "acme-client";
 import * as dateFns from "date-fns";
 import * as fsExtra from "fs-extra";
@@ -22,7 +23,7 @@ export interface ISSLInfo {
 const log = Debug("SSLManager");
 
 export class SSLManager {
-  private acmeClient;
+  private acmeClient: any;
   private acmeChallenges = new Map<string, string>();
   private sslInfoFSCahce = new Map<string, ISSLInfo>();
 
@@ -43,7 +44,7 @@ export class SSLManager {
   }
 
   public getAcmeResponse(req: http.IncomingMessage): string | null {
-    const regexpResult = req.url.match(/\.well-known\/acme-challenge\/(.*)/);
+    const regexpResult = req.url!.match(/\.well-known\/acme-challenge\/(.*)/);
 
     if (!regexpResult) {
       return null;
@@ -51,12 +52,12 @@ export class SSLManager {
 
     const token = this.acmeChallenges.get(regexpResult[1]);
 
-    return token;
+    return token || null;
   }
 
   public async getSSLSecureContext(
     domain: string,
-    letsEncryptEmail?: string
+    letsEncryptEmail: string | null
   ): Promise<tls.SecureContext> {
     const sslInfo = await this.getValidSLLInfo(domain, letsEncryptEmail);
 
@@ -77,7 +78,7 @@ export class SSLManager {
 
   private async getValidSLLInfo(
     domain: string,
-    letsEncryptEmail?: string
+    letsEncryptEmail: string | null
   ): Promise<ISSLInfo> {
     const fromFS = await this.getSLLInfoFromFileSystem(domain);
 
@@ -98,7 +99,7 @@ export class SSLManager {
     domain: string
   ): Promise<ISSLInfo | null> {
     if (this.sslInfoFSCahce.has(domain)) {
-      return this.sslInfoFSCahce.get(domain);
+      return this.sslInfoFSCahce.get(domain)!;
     }
 
     const dir = this.getDomainCertDir(domain);
@@ -149,7 +150,7 @@ export class SSLManager {
 
   private async generateLetsEncryptSSL(
     domain: string,
-    letsEncryptEmail?: string
+    letsEncryptEmail: string | null
   ): Promise<ISSLInfo> {
     log(
       `Generating LE SSL certificate for normal domain(${domain}) letsEncryptEmail(${letsEncryptEmail})...`
@@ -162,7 +163,11 @@ export class SSLManager {
       csr,
       email: letsEncryptEmail,
       termsOfServiceAgreed: true,
-      challengeCreateFn: async (authz, challenge, keyAuthorization) => {
+      challengeCreateFn: async (
+        authz: any,
+        challenge: any,
+        keyAuthorization: any
+      ) => {
         log(`Triggered challengeCreateFn() for domain(${domain})...`);
 
         /* http-01 */
@@ -185,7 +190,11 @@ export class SSLManager {
           //   // await dnsProvider.createRecord(dnsRecord, 'TXT', recordValue);
         }
       },
-      challengeRemoveFn: async (authz, challenge, keyAuthorization) => {
+      challengeRemoveFn: async (
+        authz: any,
+        challenge: any,
+        keyAuthorization: any
+      ) => {
         log(`Triggered challengeRemoveFn() for domain(${domain})...`);
 
         /* http-01 */

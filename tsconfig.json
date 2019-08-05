@@ -9,6 +9,9 @@
 
     "noEmit": true,
 
+    "strict": true,
+    "strictPropertyInitialization": false,
+
     "declaration": true,
     "sourceMap": true,
 

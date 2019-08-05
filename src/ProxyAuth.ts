@@ -65,7 +65,7 @@ export class ProxyAuth {
   }
 
   public isAuthorized(req: IncomingMessage): boolean {
-    const cookies = new Cookies(req, null);
+    const cookies = new Cookies(req, null as any);
     const authToken = cookies.get(ProxyAuth.AUTH_TOKEN_COOKIE_NAME);
 
     return authToken === this.authToken;
