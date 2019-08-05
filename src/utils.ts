@@ -1,6 +1,5 @@
 import * as child_process from "child_process";
 import * as dns from "dns";
-import * as express from "express";
 import * as http from "http";
 // @ts-ignore
 import * as parseDomainPackage from "parse-domain";

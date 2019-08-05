@@ -11,18 +11,13 @@
   "dependencies": {
     "@elderapo/typed-event-emitter": "^1.4.0",
     "@elderapo/utils": "^1.6.1",
-    "@types/date-fns": "^2.6.0",
-    "@types/http-proxy": "^1.17.0",
-    "@types/lodash": "^4.14.136",
     "acme-client": "^3.0.0",
     "basic-auth": "^2.0.1",
-    "cookie-parser": "^1.4.4",
     "cookies": "^0.7.3",
     "date-fns": "^1.30.1",
     "debug": "^4.0.1",
     "decko": "^1.2.0",
     "dotenv": "^6.2.0",
-    "express": "^4.16.4",
     "fs-extra": "^7.0.1",
     "http-proxy": "^1.17.0",
     "lodash": "^4.17.15",
@@ -37,12 +32,13 @@
   },
   "devDependencies": {
     "@types/basic-auth": "^1.1.2",
-    "@types/cookie-parser": "^1.4.1",
     "@types/cookies": "^0.7.1",
+    "@types/date-fns": "^2.6.0",
     "@types/debug": "^0.0.31",
     "@types/dotenv": "^6.1.0",
-    "@types/express": "^4.16.1",
     "@types/fs-extra": "^5.0.5",
+    "@types/http-proxy": "^1.17.0",
+    "@types/lodash": "^4.14.136",
     "@types/node": "^12.0.7"
   }
 }
