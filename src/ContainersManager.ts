@@ -7,6 +7,9 @@ import { DockerEvent, DockerEventsListener } from "./DockerEventsListener";
 import { ReverseProxy } from "./ReverseProxy";
 import { KeyValueStore } from "./types";
 import { dnsLookup, sleep } from "./utils";
+import { ProxiedContainer, HttpsMethod } from "./ProxiedContainer";
+import { IBasicAuthOptions } from "./auth/BasicAuth";
+import { isValidEnum } from "@elderapo/utils";
 
 interface IContainerInfo {
   id: string;
@@ -124,8 +127,8 @@ export class ContainersManager {
 
   private async onStartReleventContainer(containerInfo: IContainerInfo) {
     log(`Relevent container(${containerInfo.id}) is being started...`);
-    const domains = this.getVirtualHostDomains(containerInfo);
-    log(`Domains([${domains.join(", ")}])`);
+    const virtualHosts = this.getVirtualHostDomains(containerInfo);
+    log(`Domains([${virtualHosts.join(", ")}])`);
 
     const container = await this.getContainer(containerInfo.id);
 
@@ -136,40 +139,30 @@ export class ContainersManager {
     await this.fixContainerNetwork(container);
     const containerIP = await this.getContainerIP(container);
     this.containerIdToIP.set(container.id, containerIP);
-    log(`Container ip`, containerIP);
 
-    const containerPort = this.getVirtualHostPort(containerInfo);
-
-    const letsEncryptEmail = this.getLetsEncryptEmail(containerInfo);
-
-    for (let domain of domains) {
-      await this.reverseProxy.register(containerInfo.id, {
-        virtualHost: domain,
-        containerIP,
-        containerPort,
-        letsEncryptEmail,
-        ezProxyPriority: 10
+    for (let virtualHost of virtualHosts) {
+      const proxiedContainer = new ProxiedContainer(containerInfo.id, {
+        options: {
+          domain: virtualHost,
+          containerPort: this.getVirtualHostPort(containerInfo),
+          letsEncryptEmail: this.getLetsEncryptEmail(containerInfo),
+          httpsMethod: this.getHttpsMethod(containerInfo),
+          ezProxyPriority: this.getEzProxyPriority(containerInfo),
+          basicAuthOptions: this.getBasicAuthOptions(containerInfo)
+        },
+        state: {
+          ip: containerIP
+        }
       });
+
+      await this.reverseProxy.register(proxiedContainer);
     }
   }
 
   private async onDieRelevantContainer(containerInfo: IContainerInfo) {
     log(`Relevent container(${containerInfo.id}) is dying...`);
-    // const domains = this.getVirtualHostDomains(containerInfo);
-    // log(`Domains([${domains.join(", ")}])`);
-
-    // const container = await this.getContainer(containerInfo.id);
-
-    // const containerIP = this.containerIdToIP.get(container.id);
-    // const targetPort = this.getVirtualHostPort(containerInfo);
 
     await this.reverseProxy.unregister(containerInfo.id);
-
-    // for (let domain of domains) {
-    //   if (containerIP) {
-    //     await this.reverseProxy.unregister(domain, containerIP, targetPort);
-    //   }
-    // }
   }
 
   private async getContainer(containerId: string): Promise<Container | null> {
@@ -240,6 +233,39 @@ export class ContainersManager {
 
   private getLetsEncryptEmail(containerInfo: IContainerInfo): string | null {
     return containerInfo.env["LETSENCRYPT_EMAIL"] || null;
+  }
+
+  private getEzProxyPriority(containerInfo: IContainerInfo): number {
+    const priority = parseInt(containerInfo.env["EZ_PROXY_PRIORITY"]);
+
+    return Number.isNaN(priority) ? 10 : priority;
+  }
+
+  private getBasicAuthOptions(
+    containerInfo: IContainerInfo
+  ): IBasicAuthOptions | null {
+    const {
+      BASIC_AUTH = "",
+      BASIC_AUTH_COOKIE = "__ez_proxy_service_basic_auth__"
+    } = containerInfo.env;
+
+    const [username, password] = BASIC_AUTH.split(":");
+
+    return username && password
+      ? {
+          username,
+          password,
+          cookieName: BASIC_AUTH_COOKIE
+        }
+      : null;
+  }
+
+  private getHttpsMethod(containerInfo: IContainerInfo): HttpsMethod {
+    const httpsMethod = containerInfo.env["HTTPS_METHOD"] as HttpsMethod;
+
+    return isValidEnum(HttpsMethod, httpsMethod as HttpsMethod)
+      ? httpsMethod
+      : HttpsMethod.Default;
   }
 
   private async findOrCreateInternalNetwork(): Promise<Network> {

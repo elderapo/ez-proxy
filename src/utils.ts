@@ -10,6 +10,7 @@ import * as publicIP from "public-ip";
 // @ts-ignore
 import * as sslUtils from "ssl-utils";
 import { promisify } from "util";
+import { KeyValueStore } from "./types";
 
 export const sleep = promisify(setTimeout);
 
@@ -19,8 +20,8 @@ export const exec = promisify(child_process.exec);
 
 export const getPublicIP = async (): Promise<string> => await publicIP.v4();
 
-export const parseDomain = (req: express.Request) => {
-  let host = req.get("host") || "";
+export const parseDomain = (req: http.IncomingMessage) => {
+  let host = req.headers.host || "";
 
   const isLocal = isDomainLocal(host);
   let localTld: string = "";
@@ -79,6 +80,17 @@ export const checkCertificateExpiration = async (
   });
 };
 
+export const httpSetHeaders = (
+  res: http.ServerResponse,
+  headers?: KeyValueStore
+): void => {
+  for (let headerKey in headers) {
+    const headerValue = headers[headerKey];
+
+    res.setHeader(headerKey, headerValue);
+  }
+};
+
 export const httpRedirect = (
   res: http.ServerResponse,
   location: string
@@ -97,5 +109,6 @@ export const httpRespond = (
 ): void => {
   res.statusCode = code;
   res.write(body);
+
   res.end();
 };

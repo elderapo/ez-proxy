@@ -3,26 +3,17 @@ import * as http from "http";
 import { IncomingMessage } from "http";
 import * as HttpProxy from "http-proxy";
 import * as https from "https";
-import { ProxyAuth } from "./ProxyAuth";
+import { GlobalSharedBasicAuth } from "./auth";
+import { HandleUnauthorizedRequestFN } from "./auth/BasicAuth";
+import { HttpsMethod, ProxiedContainer } from "./ProxiedContainer";
 import { page404 } from "./resources/page404";
-import { isDomainLocal, httpRedirect, httpRespond } from "./utils";
 import { SSLManager } from "./SSLManager";
-import * as tls from "tls";
+import { httpRedirect, httpRespond, isDomainLocal } from "./utils";
 
 const log = Debug("ReverseProxy");
 
-export interface IReverseProxyConnectionOptions {
-  virtualHost: string;
-
-  containerPort: number;
-  containerIP: string;
-
-  letsEncryptEmail: string | null;
-  ezProxyPriority?: number;
-}
-
-export interface IProxyItem extends IReverseProxyConnectionOptions {
-  containerID: string;
+export interface IReverseProxyOptions {
+  globalBasicAuth?: GlobalSharedBasicAuth | null;
 }
 
 export class ReverseProxy {
@@ -32,9 +23,9 @@ export class ReverseProxy {
 
   private sslManager = new SSLManager();
 
-  private items: IProxyItem[] = [];
+  private proxiedContainers: ProxiedContainer[] = [];
 
-  constructor(private auth: ProxyAuth) {
+  constructor(private options: IReverseProxyOptions = {}) {
     this.proxy = HttpProxy.createProxyServer({
       secure: true,
       ws: true
@@ -48,15 +39,15 @@ export class ReverseProxy {
     this.httpsServer = https.createServer(
       {
         SNICallback: async (domain, done) => {
-          const item = this.getProxyItemByDomain(domain);
+          const proxiedContainer = this.getProxiedContainerByDomain(domain);
 
-          if (!item) {
+          if (!proxiedContainer) {
             return done(new Error("Unknown domain..."), null as any);
           }
 
           const secureContext = await this.sslManager.getSSLSecureContext(
-            domain,
-            item.letsEncryptEmail
+            proxiedContainer.options.domain,
+            proxiedContainer.options.letsEncryptEmail
           );
 
           return done(null, secureContext);
@@ -66,17 +57,21 @@ export class ReverseProxy {
     );
 
     this.httpsServer.on("upgrade", (req, socket, head) => {
-      if (this.requiresAuthorization(req)) {
+      const host = req.headers.host;
+      const proxiedContainer = this.getProxiedContainerByDomain(host);
+
+      const handleUnauthorizedRequestFN = this.getHandleUnauthorizedRequestFN(
+        req,
+        proxiedContainer
+      );
+
+      if (handleUnauthorizedRequestFN) {
         return;
       }
 
-      const host = req.headers.host;
-
-      const item = this.getProxyItemByDomain(host);
-
-      if (item) {
+      if (proxiedContainer) {
         this.proxy.ws(req, socket, head, {
-          target: `http://${item.containerIP}:${item.containerPort}`,
+          target: proxiedContainer.getInternalURL(),
           ws: true
         });
       }
@@ -91,8 +86,20 @@ export class ReverseProxy {
     protocol: "http" | "https"
   ): Promise<void> {
     const host = req.headers.host || "";
+    const proxiedContainer = this.getProxiedContainerByDomain(host);
 
-    const item = this.getProxyItemByDomain(host);
+    const handleUnauthorizedRequestFN = this.getHandleUnauthorizedRequestFN(
+      req,
+      proxiedContainer
+    );
+
+    if (handleUnauthorizedRequestFN) {
+      const canContinue = handleUnauthorizedRequestFN(req, res);
+
+      if (!canContinue) {
+        return;
+      }
+    }
 
     if (protocol === "http") {
       const acmeResponse = this.sslManager.getAcmeResponse(req);
@@ -103,66 +110,88 @@ export class ReverseProxy {
         return;
       }
 
-      if (/^www\./.test(host)) {
-        const finalHost = host.substring(4, host.length);
-        const finalLocation = `${protocol}://${finalHost}${req.url}`;
+      if (proxiedContainer) {
+        if (proxiedContainer.options.httpsMethod === HttpsMethod.NoHttp) {
+          return httpRespond(res, 404, page404);
+        }
 
-        return httpRedirect(res, finalLocation);
-      }
-
-      if (item) {
-        return httpRedirect(res, `https://${host}:${req.url}`);
+        if (proxiedContainer.options.httpsMethod === HttpsMethod.Recirect) {
+          return httpRedirect(res, `https://${host}:${req.url}`);
+        }
       }
     }
 
-    if (this.requiresAuthorization(req)) {
-      return this.proxy.web(req, res, {
-        target: this.auth.getAuthUrl()
-      });
+    if (/^www\./.test(host)) {
+      const finalHost = host.substring(4, host.length);
+      const finalLocation = `${protocol}://${finalHost}${req.url}`;
+
+      return httpRedirect(res, finalLocation);
     }
 
-    if (item) {
-      return this.proxy.web(req, res, {
-        target: `http://${item.containerIP}:${item.containerPort}`
-      });
+    if (!proxiedContainer) {
+      return httpRespond(res, 404, page404);
     }
 
-    return httpRespond(res, 404, page404);
+    if (
+      proxiedContainer.options.httpsMethod === HttpsMethod.NoHttps &&
+      protocol === "https"
+    ) {
+      return httpRespond(res, 404, page404);
+    }
+
+    return this.proxy.web(req, res, {
+      target: proxiedContainer.getInternalURL()
+    });
   }
 
-  public async register(
-    containerID: string,
-    options: IReverseProxyConnectionOptions
-  ): Promise<void> {
-    const item: IProxyItem = {
-      containerID,
-      ...options
-    };
-
-    this.items.push(item);
+  public async register(proxiedContainer: ProxiedContainer): Promise<void> {
+    log(`Registering container: ${JSON.stringify(proxiedContainer)}...`);
+    this.proxiedContainers.push(proxiedContainer);
   }
 
-  public async unregister(containerID: string): Promise<void> {
-    this.items = this.items.filter(item => item.containerID !== containerID);
+  public async unregister(removedContainerID: string): Promise<void> {
+    this.proxiedContainers = this.proxiedContainers.filter(
+      proxiedContainer => proxiedContainer.id !== removedContainerID
+    );
   }
 
-  private getProxyItemByDomain(domain: string): IProxyItem | null {
-    for (let item of this.items) {
-      if (item.virtualHost === domain) {
-        return item;
-      }
+  private getProxiedContainerByDomain(domain: string): ProxiedContainer | null {
+    const thisDomainProxiedContainers = this.proxiedContainers.filter(
+      proxiedContainer => proxiedContainer.options.domain === domain
+    );
+
+    const bestPriority = thisDomainProxiedContainers.reduce(
+      (prev, proxiedContainer) => {
+        return Math.max(prev, proxiedContainer.options.ezProxyPriority);
+      },
+      -Infinity
+    );
+
+    const thisDomainProxiedContainersWithBestPriority = thisDomainProxiedContainers.filter(
+      proxiedContainer =>
+        proxiedContainer.options.ezProxyPriority === bestPriority
+    );
+
+    return thisDomainProxiedContainersWithBestPriority[0] || null;
+  }
+
+  private getHandleUnauthorizedRequestFN(
+    req: IncomingMessage,
+    proxiedContainer?: ProxiedContainer | null
+  ): HandleUnauthorizedRequestFN | null {
+    const host = req.headers.host || "";
+
+    if (isDomainLocal(host)) {
+      return null;
+    }
+
+    if (
+      this.options.globalBasicAuth &&
+      !this.options.globalBasicAuth.isAuthorized(req)
+    ) {
+      return this.options.globalBasicAuth.getHandleUnauthorizedRequestFN();
     }
 
     return null;
-  }
-
-  private requiresAuthorization(req: IncomingMessage): boolean {
-    const host = req.headers.host || "";
-
-    return (
-      !isDomainLocal(host) &&
-      this.auth.isEnabled() &&
-      !this.auth.isAuthorized(req)
-    );
   }
 }

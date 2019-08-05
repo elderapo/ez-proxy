@@ -2,7 +2,7 @@ require("dotenv").config();
 
 import { Docker } from "node-docker-api";
 import { ContainersManager } from "./ContainersManager";
-import { ProxyAuth } from "./ProxyAuth";
+import { GlobalSharedBasicAuth } from "./auth";
 import { ReverseProxy } from "./ReverseProxy";
 
 const main = async () => {
@@ -10,14 +10,23 @@ const main = async () => {
 
   const {
     GLOBAL_BASIC_AUTH_USERNAME,
-    GLOBAL_BASIC_AUTH_PASSWORD
+    GLOBAL_BASIC_AUTH_PASSWORD,
+    GLOBAL_BASIC_AUTH_COOKIE_NAME
   } = process.env;
 
-  const auth = new ProxyAuth(
-    GLOBAL_BASIC_AUTH_USERNAME,
-    GLOBAL_BASIC_AUTH_PASSWORD
-  );
-  const reverseProxy = new ReverseProxy(auth);
+  const globalBasicAuth =
+    GLOBAL_BASIC_AUTH_USERNAME && GLOBAL_BASIC_AUTH_PASSWORD
+      ? new GlobalSharedBasicAuth({
+          username: GLOBAL_BASIC_AUTH_USERNAME,
+          password: GLOBAL_BASIC_AUTH_PASSWORD,
+          cookieName:
+            GLOBAL_BASIC_AUTH_COOKIE_NAME || "__ez_shared_basic_auth__"
+        })
+      : null;
+
+  const reverseProxy = new ReverseProxy({
+    globalBasicAuth
+  });
 
   new ContainersManager(docker, reverseProxy);
 };

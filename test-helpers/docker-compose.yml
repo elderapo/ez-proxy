@@ -20,3 +20,5 @@ services:
       - VIRTUAL_HOST=whoami3.ziemniak.loc,whoami3.ziemniak.ovh
       - VIRTUAL_PORT=8000
       - LETSENCRYPT_EMAIL=elderapo+LETSENCRYPT@gmail.com
+      - BASIC_AUTH=123123123:123123123
+      # - HTTPS_METHOD=nohttps

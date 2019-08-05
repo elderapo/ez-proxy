@@ -10,6 +10,7 @@
   "license": "MIT",
   "dependencies": {
     "@elderapo/typed-event-emitter": "^1.4.0",
+    "@elderapo/utils": "^1.6.1",
     "@types/date-fns": "^2.6.0",
     "@types/http-proxy": "^1.17.0",
     "acme-client": "^3.0.0",
