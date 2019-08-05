@@ -128,7 +128,6 @@ export class ContainersManager {
   private async onStartReleventContainer(containerInfo: IContainerInfo) {
     log(`Relevent container(${containerInfo.id}) is being started...`);
     const virtualHosts = this.getVirtualHostDomains(containerInfo);
-    log(`Domains([${virtualHosts.join(", ")}])`);
 
     const container = await this.getContainer(containerInfo.id);
 
@@ -295,7 +294,7 @@ export class ContainersManager {
   }
 
   private async fixContainerNetwork(container: Container): Promise<void> {
-    log(`Fixing container(${container.id}) network!`);
+    log(`Fixing container(${container.id}) network...`);
     await this.waitForNetworkToBeReady();
 
     try {
@@ -303,7 +302,7 @@ export class ContainersManager {
         container: container.id
       });
     } catch (ex) {
-      log(`Container(${container.id}) alrady had correct network...`);
+      log(`Container(${container.id}) alrady had correct network!`);
     }
   }
 

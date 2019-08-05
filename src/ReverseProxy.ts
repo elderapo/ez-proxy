@@ -82,7 +82,7 @@ export class ReverseProxy {
 
       if (proxiedContainer) {
         this.proxy.ws(req, socket, head, {
-          target: proxiedContainer.getInternalURL(),
+          target: proxiedContainer.getTargetURL(),
           ws: true
         });
       }
@@ -97,7 +97,23 @@ export class ReverseProxy {
     protocol: "http" | "https"
   ): Promise<void> {
     httpLogger(req, res);
+
     const host = req.headers.host || "";
+
+    // Handle LetsEncrypt domain verify checks...
+    const acmeResponse = this.sslManager.getAcmeResponse(req);
+    if (acmeResponse) {
+      return httpRespond(res, 200, acmeResponse);
+    }
+
+    // Redirect www.zzz.com -> zzz.com
+    if (/^www\./.test(host)) {
+      const finalHost = host.substring(4, host.length);
+      const finalLocation = `${protocol}://${finalHost}${req.url}`;
+
+      return httpRedirect(res, finalLocation);
+    }
+
     const proxiedContainer = this.getProxiedContainerByDomain(host);
 
     const handleUnauthorizedRequestFN = this.getHandleUnauthorizedRequestFN(
@@ -105,6 +121,7 @@ export class ReverseProxy {
       proxiedContainer
     );
 
+    // Handle shared global and container level basic authorization...
     if (handleUnauthorizedRequestFN) {
       const canContinue = handleUnauthorizedRequestFN(req, res);
 
@@ -113,58 +130,45 @@ export class ReverseProxy {
       }
     }
 
-    if (protocol === "http") {
-      const acmeResponse = this.sslManager.getAcmeResponse(req);
-
-      if (acmeResponse) {
-        res.write(acmeResponse);
-        res.end();
-        return;
-      }
-
-      if (proxiedContainer) {
-        if (proxiedContainer.options.httpsMethod === HttpsMethod.NoHttp) {
-          return httpRespond(res, 404, page404);
-        }
-
-        if (proxiedContainer.options.httpsMethod === HttpsMethod.Recirect) {
-          return httpRedirect(res, `https://${host}:${req.url}`);
-        }
-      }
-    }
-
-    if (/^www\./.test(host)) {
-      const finalHost = host.substring(4, host.length);
-      const finalLocation = `${protocol}://${finalHost}${req.url}`;
-
-      return httpRedirect(res, finalLocation);
-    }
-
     if (!proxiedContainer) {
       return httpRespond(res, 404, page404);
     }
 
-    if (
-      proxiedContainer.options.httpsMethod === HttpsMethod.NoHttps &&
-      protocol === "https"
-    ) {
-      return httpRespond(res, 404, page404);
+    const { httpsMethod } = proxiedContainer.options;
+
+    if (protocol === "http") {
+      if (httpsMethod === HttpsMethod.NoHttp) {
+        return httpRespond(res, 404, page404);
+      }
+
+      if (httpsMethod === HttpsMethod.Recirect) {
+        return httpRedirect(res, `https://${host}:${req.url}`);
+      }
+    } else if (protocol === "https") {
+      if (httpsMethod === HttpsMethod.NoHttps) {
+        return httpRespond(res, 404, page404);
+      }
     }
 
     return this.proxy.web(req, res, {
-      target: proxiedContainer.getInternalURL()
+      target: proxiedContainer.getTargetURL()
     });
   }
 
   public async register(proxiedContainer: ProxiedContainer): Promise<void> {
-    log(`Registering container: ${JSON.stringify(proxiedContainer)}...`);
+    log(`Registered: ${proxiedContainer}!`);
     this.proxiedContainers.push(proxiedContainer);
   }
 
   public async unregister(removedContainerID: string): Promise<void> {
-    this.proxiedContainers = this.proxiedContainers.filter(
-      proxiedContainer => proxiedContainer.id !== removedContainerID
-    );
+    log(`Unregistering containers with id: ${removedContainerID}...`);
+    this.proxiedContainers = this.proxiedContainers.filter(proxiedContainer => {
+      const shouldUnregister = proxiedContainer.id === removedContainerID;
+
+      log(`Unregistered: ${proxiedContainer}!`);
+
+      return !shouldUnregister;
+    });
   }
 
   private getProxiedContainerByDomain(domain: string): ProxiedContainer | null {
@@ -184,6 +188,7 @@ export class ReverseProxy {
         proxiedContainer.options.ezProxyPriority === bestPriority
     );
 
+    // Pick random container for correct domain with highest priority possible
     return _.sample(thisDomainProxiedContainersWithBestPriority) || null;
   }
 

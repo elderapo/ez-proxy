@@ -1,5 +1,5 @@
 import { DeepReadonly } from "@elderapo/utils";
-import { IBasicAuthOptions, BasicAuth } from "./auth/BasicAuth";
+import { BasicAuth, IBasicAuthOptions } from "./auth/BasicAuth";
 
 export enum HttpsMethod {
   NoRecirect = "noredirect",
@@ -45,9 +45,17 @@ export class ProxiedContainer implements DeepReadonly<IProxiedContainer> {
       : null;
   }
 
-  public getInternalURL() {
-    const url = `http://${this.state.ip}:${this.options.containerPort}`;
-
-    return url;
+  public getTargetURL() {
+    return `http://${this.state.ip}:${this.options.containerPort}`;
   }
 }
+
+ProxiedContainer.prototype.toString = function() {
+  return `ProxiedContainer(id: ${
+    this.id
+  }, target: ${this.getTargetURL()}, domain: ${
+    this.options.domain
+  }, httpsMethod: ${this.options.httpsMethod}, priority: ${
+    this.options.ezProxyPriority
+  })`;
+};
