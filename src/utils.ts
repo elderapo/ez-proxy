@@ -12,8 +12,6 @@ import * as sslUtils from "ssl-utils";
 import { promisify } from "util";
 import { KeyValueStore } from "./types";
 
-export const sleep = promisify(setTimeout);
-
 export const dnsLookup = promisify(dns.lookup);
 export const dnsReverse = promisify(dns.reverse);
 export const exec = promisify(child_process.exec);

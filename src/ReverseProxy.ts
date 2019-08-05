@@ -9,6 +9,7 @@ import { HttpsMethod, ProxiedContainer } from "./ProxiedContainer";
 import { page404 } from "./resources/page404";
 import { SSLManager } from "./SSLManager";
 import { httpRedirect, httpRespond, isDomainLocal } from "./utils";
+import * as _ from "lodash";
 
 const log = Debug("ReverseProxy");
 
@@ -172,7 +173,7 @@ export class ReverseProxy {
         proxiedContainer.options.ezProxyPriority === bestPriority
     );
 
-    return thisDomainProxiedContainersWithBestPriority[0] || null;
+    return _.sample(thisDomainProxiedContainersWithBestPriority) || null;
   }
 
   private getHandleUnauthorizedRequestFN(

@@ -6,10 +6,10 @@ import { Network } from "node-docker-api/lib/network";
 import { DockerEvent, DockerEventsListener } from "./DockerEventsListener";
 import { ReverseProxy } from "./ReverseProxy";
 import { KeyValueStore } from "./types";
-import { dnsLookup, sleep } from "./utils";
+import { dnsLookup } from "./utils";
 import { ProxiedContainer, HttpsMethod } from "./ProxiedContainer";
 import { IBasicAuthOptions } from "./auth/BasicAuth";
-import { isValidEnum } from "@elderapo/utils";
+import { isValidEnum, sleep } from "@elderapo/utils";
 
 interface IContainerInfo {
   id: string;
