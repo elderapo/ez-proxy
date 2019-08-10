@@ -39,7 +39,8 @@ export class ReverseProxy {
   constructor(private options: IReverseProxyOptions = {}) {
     this.proxy = HttpProxy.createProxyServer({
       secure: true,
-      ws: true
+      ws: true,
+      xfwd: true
     });
 
     this.httpServer = http.createServer((req, res) =>
