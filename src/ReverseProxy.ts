@@ -43,6 +43,14 @@ export class ReverseProxy {
       xfwd: true
     });
 
+    this.proxy.on("error", (err, req, res) => {
+      log(`Couldn't proxy request to container! Error: ${err}`);
+
+      res.statusCode = 503;
+
+      return res.end(`Service you're trying to connect to is unavaiable!`);
+    });
+
     this.httpServer = http.createServer((req, res) =>
       this.httpRequestHandler(req, res, "http")
     );
