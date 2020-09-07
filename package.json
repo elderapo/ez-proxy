@@ -19,7 +19,7 @@
     "decko": "^1.2.0",
     "dotenv": "^6.2.0",
     "fs-extra": "^7.0.1",
-    "http-proxy": "^1.17.0",
+    "http-proxy": "^1.18.1",
     "lodash": "^4.17.15",
     "morgan": "^1.9.1",
     "node-docker-api": "^1.1.22",
