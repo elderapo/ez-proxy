@@ -699,8 +699,9 @@ diffie-hellman@^5.0.0:
     randombytes "^2.0.0"
 
 dns-packet@^5.1.2:
-  version "5.1.2"
-  resolved "https://registry.yarnpkg.com/dns-packet/-/dns-packet-5.1.2.tgz#9f1cbb02ff53edd59938cae6faa6a4f7aac7f922"
+  version "5.2.3"
+  resolved "https://registry.yarnpkg.com/dns-packet/-/dns-packet-5.2.3.tgz#ebd234118c40e59ec7097c50a4b2ee36fe9ae0c9"
+  integrity sha512-qrcTxpFwILBjWasLSVQmBXTI8XVLP9Tbmyv9Mvb41Exnl7yLqQ5UkXV7Jf+Ak14PBwoeOfCpMZZCzqUQVX40Zw==
   dependencies:
     ip "^1.1.5"
 
@@ -1157,6 +1158,7 @@ ip-regex@^2.0.0, ip-regex@^2.1.0:
 ip@^1.1.5:
   version "1.1.5"
   resolved "https://registry.yarnpkg.com/ip/-/ip-1.1.5.tgz#bdded70114290828c0a039e72ef25f5aaec4354a"
+  integrity sha1-vd7XARQpCCjAoDnnLvJfWq7ENUo=
 
 is-buffer@^2.0.2:
   version "2.0.3"
